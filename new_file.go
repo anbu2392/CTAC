@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
-	pb "github.com/hyperledger/fabric/protos/peer"
+	pb "github.com/hyperledger/fabric/peer"
 )
 
 type SimpleChaincode struct {
@@ -17,7 +17,7 @@ type SimpleChaincode struct {
 
 type booking struct {
 	ObjectType	string `json:"docType"` //docType is used to distinguish the various types of objects in state database  not sure why its needed
-	AgentID		string `json:"agentId"`   //unique agend id
+	AgentID		string `json:"agentId"`   //unique agent id
 	BookingID	int	   `json:"bookingId"` //booking ID
 	TotalBill	float32	`json:"totalBill"`  //no of days client will be staying		
 	IsSettled	bool   `json:"isSettled"`  //is booking is pending or completed
@@ -70,7 +70,7 @@ func(t *SimpleChaincode) updatePayables(stub shim.ChaincodeStubInterface, args s
 	if err != nil {
 		jsonResp := "{\"Error\":\"Failed to get state for " + bookingID + "\"}"
 		return shim.Error(jsonResp)
-	} else if valAsbytes == nil {
+	} else if bookingAsBytes == nil {
 		jsonResp := "{\"Error\":\"Booking ID does not exist: " + bookingID + "\"}"
 		return shim.Error(jsonResp)
 	} 
@@ -85,8 +85,19 @@ func(t *SimpleChaincode) updatePayables(stub shim.ChaincodeStubInterface, args s
 	
 	
 	if bookingTemp.IsSettled  != true {
-		
+		return shim.Error("payables cant be updated as settlement is pending for booking id" +bookingID)
 	}
+	
+	bookingTemp.Payables = bookingTemp.TotalBill *0.02
+	
+	bookingAsJsonBytes, err := json.Marshal(bookingTemp)
+	err = stub.putState(bookingID, bookingAsJsonBytes)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	fmt.Println("payables are updated are successfully updated")
+	
+	
 	
 	
 }
@@ -98,12 +109,13 @@ func (t *SimpleChaincode) updateSettled(stub shim.ChaincodeStubInterface, args s
 	}
 	
 	bookingID := args[1]
+	bill := args[2]
 	
 	bookingAsBytes, err := stub.getState(bookingID)
 	if err != nil {
 		jsonResp := "{\"Error\":\"Failed to get state for " + bookingID + "\"}"
 		return shim.Error(jsonResp)
-	} else if valAsbytes == nil {
+	} else if bookingAsBytes == nil {
 		jsonResp := "{\"Error\":\"Booking ID does not exist: " + bookingID + "\"}"
 		return shim.Error(jsonResp)
 	} 
@@ -116,8 +128,8 @@ func (t *SimpleChaincode) updateSettled(stub shim.ChaincodeStubInterface, args s
 		return shim.Error(err.Error())
 	}
 	
-	bookingTemp.IsSettled=true
-	bookingTemp.Totalbill=args[2]
+	bookingTemp.IsSettled = true
+	bookingTemp.Totalbill = bill
 	
 	bookingAsJsonBytes, err := json.Marshal(bookingTemp)
 	err = stub.putState(bookingID, bookingAsJsonBytes)
