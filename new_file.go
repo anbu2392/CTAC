@@ -55,18 +55,24 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return t.updateSettled(stub,args)
 	} else if function == "updatePayables" && caller == "CTAC" {
 		return t.updatePayables(stub,args)
+	} else if function == "readStatus" {
+		return t.readStatus(stub, args)
 	}
+		
+		
+	fmt.Println("invoke did not find func: " + function) //error
+	return shim.Error("Received unknown function invocation")
 	
 }
 
-func(t *SimpleChaincode) updatePayables(stub shim.ChaincodeStubInterface, args string[]) pb.Response {
+func(t *SimpleChaincode) updatePayables (stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	// arg0 will be caller
 	if len(args) != 2 {
 		return shim.Error("Incorrect number of arguments. Expecting Booking ID")
 	}
 	
 	bookingID := args[1]
-	bookingAsBytes, err := stub.getState(bookingID)
+	bookingAsBytes, err := stub.PutState(bookingID)
 	if err != nil {
 		jsonResp := "{\"Error\":\"Failed to get state for " + bookingID + "\"}"
 		return shim.Error(jsonResp)
@@ -91,7 +97,7 @@ func(t *SimpleChaincode) updatePayables(stub shim.ChaincodeStubInterface, args s
 	bookingTemp.Payables = bookingTemp.TotalBill *0.02
 	
 	bookingAsJsonBytes, err := json.Marshal(bookingTemp)
-	err = stub.putState(bookingID, bookingAsJsonBytes)
+	err = stub.PutState(bookingID, bookingAsJsonBytes)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
@@ -102,16 +108,17 @@ func(t *SimpleChaincode) updatePayables(stub shim.ChaincodeStubInterface, args s
 	
 }
 
-func (t *SimpleChaincode) updateSettled(stub shim.ChaincodeStubInterface, args string[]) pb.Response {
+
+func (t *SimpleChaincode) updateSettled (stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	// arg0 will be caller arg1 booking id  arg2 totalbill
 	if len(args) != 2 {
 		return shim.Error("Incorrect number of arguments. Expecting Booking ID")
 	}
 	
-	bookingID := args[1]
-	bill := args[2]
+	bookingID := strconv.Atoi(args[1])
+	bill := strconv.ParseFloat(args[2], 32)
 	
-	bookingAsBytes, err := stub.getState(bookingID)
+	bookingAsBytes, err := stub.GetState(bookingID)
 	if err != nil {
 		jsonResp := "{\"Error\":\"Failed to get state for " + bookingID + "\"}"
 		return shim.Error(jsonResp)
@@ -132,7 +139,7 @@ func (t *SimpleChaincode) updateSettled(stub shim.ChaincodeStubInterface, args s
 	bookingTemp.Totalbill = bill
 	
 	bookingAsJsonBytes, err := json.Marshal(bookingTemp)
-	err = stub.putState(bookingID, bookingAsJsonBytes)
+	err = stub.PutState(bookingID, bookingAsJsonBytes)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
@@ -141,7 +148,7 @@ func (t *SimpleChaincode) updateSettled(stub shim.ChaincodeStubInterface, args s
 }
 
 
-func (t *SimpleChaincode) initBooking(stub shim.ChaincodeStubInterface, args string[]) pb.Response {
+func (t *SimpleChaincode) initBooking (stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	
 	// when calling init booking we need to pass all 5 arguments 
 	//arg0 - caller type
@@ -161,12 +168,35 @@ func (t *SimpleChaincode) initBooking(stub shim.ChaincodeStubInterface, args str
 		return shim.Error(err.Error())
 	}
 	//put the marshal into chaincode
-	err = stub.putState(bookingID, bookingAsJsonBytes)
+	err = stub.PutState(bookingID, bookingAsJsonBytes)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
 	
 	// make index later
+	
+}
+
+func (t *SimpleChaincode) readStatus (stub shim.ChaincodeStubInterface, args []string)  pb.response {
+	
+	var bookingid int
+	var jsonResp string
+	var err error
+	var c booking
+	
+	bookingid = args[1]
+	
+	bookingAsBytes, err := stub.GetState(bookingid)
+	
+	if err != nil {
+		jsonResp = "{\"Error\":\"Failed to get state for " + bookingid + "\"}"
+		return shim.Error(jsonResp)
+	} else if bookingAsBytes == nil {
+		jsonResp = "{\"Error\":\"booking id does not exist: " + booking id  + "\"}"
+		return shim.Error(jsonResp)
+	}
+	
+	return shim.Success(bookingAsBytes)
 	
 }
 
